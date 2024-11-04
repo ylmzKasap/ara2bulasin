@@ -410,8 +410,10 @@ function onForceEntry () {
   setTimeout(() => {
       forceEntryError = ''
     }, 2000)
+
+  const savedPlayers = savedScores?.value()?.toArray()
   
-  if (readyCount / playerCount <= 0.5 || playerCount < 5) {
+  if ((readyCount / playerCount <= 0.5 || playerCount < 5) && savedPlayers?.length === 0) {
     forceEntryError = 'Hele biraz bekle'
     return;
   }
@@ -424,7 +426,6 @@ function onForceEntry () {
     }
   }
 
-  const savedPlayers = savedScores?.value()?.toArray()
   const meInSavedScores = savedPlayers?.find(p => p.id === public_id)
   if (meInSavedScores) {
     forceEntryError = 'Zaten oynamışsın ?!'
