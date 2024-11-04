@@ -10,7 +10,7 @@ const { user, rows = 6, large = false, showLetters = false } = defineProps<{
 
 const [fontSize, boxSize] = large ? ['32px', '47px'] : ['16px', '25px']
 const cheaterTitles = [
-  'über zekâ', 'ultra sonik', 'aynştayn', 'ara ki bul', '800 IQ', 'medyum memiş', 'beyin bedava',
+  'über zekâ', 'ultra sonik', 'aynştayn', 'ara 2 bul', '800 IQ', 'medyum memiş', 'beyin bedava',
   'ulvi zat', 'wordle lordu', '%100 alın teri', 'mübarek insan', 'Oxford terk', 'zaman yolcusu']
 
 const emptyBoard = $ref(

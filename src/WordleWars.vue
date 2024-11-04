@@ -411,7 +411,7 @@ function onForceEntry () {
       forceEntryError = ''
     }, 2000)
   
-  if (readyCount / playerCount <= 0.5) {
+  if (readyCount / playerCount <= 0.5 || playerCount < 5) {
     forceEntryError = 'Hele biraz bekle'
     return;
   }
@@ -830,6 +830,19 @@ async function login(reset=false) {
             </button>
             <div v-if="!shareSupported" class="small-center-message">Oyun linkini kopyala <br> ve önüne gelene gönder.</div>
             <div v-if="shareSupported" class="small-center-message">Oyun linkini <br> önüne gelenle paylaş.</div>
+            <div id="force-entry" 
+              @click="onForceEntry"
+              v-bind:class="forceEntryError ? 'please-wait' : fallingThroughChimney ? 'falling-down' : undefined">
+              <p v-if="fallingThroughChimney">
+                Pat... Küt...
+              </p>
+              <p v-else-if="forceEntryError">
+                {{forceEntryError}}
+              </p>
+              <p class="force-entry-text" v-else>
+                <i class="fa-solid fa-ring"></i> Bacadan gir 
+              </p>
+            </div>
             <div v-if="soundEnabled === 'on'" class="volume-icon">
               <i class="fa-solid fa-volume-high" @click="onMute"></i>
             </div>
