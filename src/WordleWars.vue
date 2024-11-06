@@ -63,6 +63,7 @@ let reEnterTimePenalty = $ref(0)
 let statSpan = $ref(1)
 // Keep track of revealed letters for the virtual keyboard
 let letterStates: LettersGuessed = $ref({})
+const inGameStages = [GameState.COMPLETE, GameState.PLAYING, GameState.SCORES, GameState.READY];
 
 let gameStartTime: Date;
 const shareSupported = navigator.share !== undefined && isMobile()
@@ -220,7 +221,7 @@ const gameEvents: { [key in GameState]?: () => void } = {
   // READY stage starts after ready button pressed
   // When all users are in the READY or PLAYING stages, start game
   [GameState.READY]: () => {
-    if (allInStages([GameState.READY, GameState.PLAYING, GameState.SCORES, GameState.COMPLETE])) {
+    if (allIsReady()) {
       startAnimation = true
       setTimeout(() => {
         startAnimation = false
@@ -270,6 +271,7 @@ function allInStages (stages: GameState[]) {
   if (!others?.value || !others?.value.count) {
     return false
   }
+
   let myPresenceFound = false
   return stages.some(stage => {
     const othersReady = others.value?.toArray().every(
@@ -278,6 +280,32 @@ function allInStages (stages: GameState[]) {
     myPresenceFound = myPresenceFound || myPresence!.value.stage === stage
     return Boolean(othersReady)
   }) && myPresenceFound
+}
+
+function getReadyPlayers() {
+  if (!others?.value || !others?.value.count) {
+    return []
+  }
+
+  return others.value.toArray().filter(o => o.presence && inGameStages.includes(o.presence.stage));
+}
+
+
+function allIsReady () {
+  if (!others?.value || !others?.value.count) {
+    return false
+  }
+  
+  const readyPlayers = getReadyPlayers();
+  if (readyPlayers.length < 3) {
+    return false;
+  }
+
+  const allStages = [
+    myPresence!.value.stage, 
+    ...others.value?.toArray().map(o => o.presence && o.presence.stage)].filter(Boolean);
+  
+  return allStages.every(stage => inGameStages.includes(stage));
 }
 
 // ================================================================================
@@ -822,6 +850,11 @@ async function login(reset=false) {
               class="unready-button">
               Hazır değilmişim...
             </button>
+            <div 
+              class="small-center-message"
+              v-if="myPresence.stage === GameState.READY && getReadyPlayers().length < 3">
+              {{3 - getReadyPlayers().length}} kişi daha lazım
+            </div>
             <div class="divider" />
             <button class="copy-button" @click="onCopyLink" :disabled="!!copyLinkMessage">
               {{ copyLinkMessage || shareMessage }}
