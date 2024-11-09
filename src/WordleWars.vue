@@ -64,6 +64,7 @@ let statSpan = $ref(1)
 // Keep track of revealed letters for the virtual keyboard
 let letterStates: LettersGuessed = $ref({})
 const inGameStages = [GameState.COMPLETE, GameState.PLAYING, GameState.SCORES, GameState.READY];
+const minPlayersToStart = 3 - 1;
 
 let gameStartTime: Date;
 const shareSupported = navigator.share !== undefined && isMobile()
@@ -287,7 +288,20 @@ function getReadyPlayers() {
     return []
   }
 
-  return others.value.toArray().filter(o => o.presence && inGameStages.includes(o.presence.stage));
+  return others.value.toArray()
+    .filter(o => o.presence && inGameStages.includes(o.presence.stage))
+    .filter((item, index, array) =>
+      array.findIndex(obj => obj.id === item.id) === index
+);
+}
+
+function tabIsOpen() {
+  if (!others?.value || !others?.value.count || !myPresence) {
+    return false;
+  }
+
+  const myId = myPresence.value.id;
+  return others.value.toArray().some(p => p.presence && p.presence.id === myId);
 }
 
 
@@ -295,9 +309,13 @@ function allIsReady () {
   if (!others?.value || !others?.value.count) {
     return false
   }
+
+  if (tabIsOpen()) {
+    return false;
+  }
   
   const readyPlayers = getReadyPlayers();
-  if (readyPlayers.length < 3) {
+  if (readyPlayers.length < minPlayersToStart) {
     return false;
   }
 
@@ -426,6 +444,13 @@ function onCopyLink () {
 // Function force entry
 function onForceEntry () {
   if (forceEntryError) return;
+
+  if (tabIsOpen()) {
+    setTimeout(() => {
+      forceEntryError = ''
+    }, 2000)
+    return forceEntryError = 'Sekma kapa :)'
+  }
 
   let readyCount = 1;
   let playerCount = othersPresence.length + 1;
@@ -852,8 +877,13 @@ async function login(reset=false) {
             </button>
             <div 
               class="small-center-message"
-              v-if="myPresence.stage === GameState.READY && getReadyPlayers().length < 3">
-              {{3 - getReadyPlayers().length}} kişi daha lazım
+              v-if="tabIsOpen()">
+              Sekme kapa :))
+            </div>
+            <div 
+              class="small-center-message"
+              v-else-if="myPresence.stage === GameState.READY && getReadyPlayers().length < minPlayersToStart">
+              {{minPlayersToStart - getReadyPlayers().length}} kişi daha lazım
             </div>
             <div class="divider" />
             <button class="copy-button" @click="onCopyLink" :disabled="!!copyLinkMessage">
