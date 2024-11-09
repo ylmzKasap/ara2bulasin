@@ -291,7 +291,7 @@ function getReadyPlayers() {
   return others.value.toArray()
     .filter(o => o.presence && inGameStages.includes(o.presence.stage))
     .filter((item, index, array) =>
-      array.findIndex(obj => obj.id === item.id) === index
+      array.findIndex(obj => obj.presence?.id === item.presence?.id) === index
 );
 }
 
