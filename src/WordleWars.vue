@@ -275,7 +275,7 @@ function allInStages (stages: GameState[]) {
 
   let myPresenceFound = false
   return stages.some(stage => {
-    const othersReady = others.value?.toArray().every(
+    const othersReady = others.value?.every(
       other => other.presence && other.presence.stage === stage
     )
     myPresenceFound = myPresenceFound || myPresence!.value.stage === stage
@@ -284,7 +284,7 @@ function allInStages (stages: GameState[]) {
 }
 
 function getReadyPlayers() {
-  if (!others?.value || !others?.value.count) {
+  if (!others?.value || !others?.value.length) {
     return []
   }
 
