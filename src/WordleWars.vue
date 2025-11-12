@@ -306,7 +306,7 @@ function tabIsOpen() {
 
 
 function allIsReady () {
-  if (!others?.value || !others?.value.count) {
+  if (!others?.value || !others?.value.length) {
     return false
   }
 
@@ -321,7 +321,7 @@ function allIsReady () {
 
   const allStages = [
     myPresence!.value.stage, 
-    ...others.value?.toArray().map(o => o.presence && o.presence.stage)].filter(Boolean);
+    ...others.value?.map(o => o.presence && o.presence.stage)].filter(Boolean);
   
   return allStages.every(stage => inGameStages.includes(stage));
 }
