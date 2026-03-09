@@ -296,12 +296,12 @@ function getReadyPlayers() {
 }
 
 function tabIsOpen() {
-  if (!others?.value || !others?.value.count || !myPresence) {
+  if (!others?.value || (Array.from(others?.value)).length === 0 || !myPresence) {
     return false;
   }
 
   const myId = myPresence.value.id;
-  return others.value?.toArray().some(p => p.presence && p.presence.id === myId);
+  return Array.from(others.value).some(p => p.presence && p.presence.id === myId);
 }
 
 
