@@ -1,3 +1,3 @@
 export function getWordOfTheDay () {
-  return { answer: '02372' }
+  return { answer: '75537' }
 }
