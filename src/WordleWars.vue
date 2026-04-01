@@ -29,7 +29,7 @@ import calculatePlayerScore from './lib/calculatePlayerScore';
 // ================================================================================
 // SETUP
 
-// Get word of the day. Resets at UTC +00:00
+// Get answer from a single source of truth
 const { answer } = getWordOfTheDay()
 // Current state of game, username, etc
 const params = new URL(location.href).searchParams;
@@ -253,6 +253,7 @@ watchEffect(() => {
 
 // Updates the current game stage for local player
 function updateGameStage (stage: GameState) {
+  localStorage.setItem('sound', 'on');
   if (myPresence?.value) {
     gameState = stage
 
@@ -443,6 +444,7 @@ function onCopyLink () {
 
 // Function force entry
 function onForceEntry () {
+  localStorage.setItem('sound', 'on');
   if (forceEntryError) return;
 
   if (tabIsOpen()) {
@@ -941,7 +943,7 @@ async function login(reset=false) {
         <div v-if="gameState === GameState.SCORES" id="scores">
           <div>
             <h2>
-              <span>Doğru cevap: <strong class="tracking-wider">{{ answer.toLocaleUpperCase('TR') }}</strong></span>
+              <span>Doğru cevap: <strong class="tracking-wider">{{ answer }}</strong></span>
             </h2>
             <div class="divider" />
             <div class="scores-grid">

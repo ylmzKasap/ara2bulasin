@@ -10,18 +10,18 @@ defineEmits<{
 }>()
 
 const rows = [
-  'ertyuıopğü'.split(''),
-  'asdfghjklşi'.split(''),
-  ['Enter', ...'zcvbnmöç'.split(''), 'Backspace']
+  ['1', '2', '3', '4', '5'],
+  ['6', '7', '8', '9', '0'],
+  ['Enter', 'Backspace']
 ]
 </script>
 
 <template>
   <div id="keyboard">
-    <div class="row" v-for="(row, i) in rows">
-      <div class="spacer" v-if="i === 1"></div>
+    <div class="row" v-for="(row, rowIndex) in rows" :key="`row-${rowIndex}`">
       <button
         v-for="key in row"
+        :key="key"
         :class="['keyboard-button', key.length > 1 && 'big', letterStates[key]]"
         @click="$emit('key', key)"
       >
@@ -39,7 +39,6 @@ const rows = [
           ></path>
         </svg>
       </button>
-      <div class="spacer" v-if="i === 1"></div>
     </div>
   </div>
 </template>

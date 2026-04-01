@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { onUnmounted } from 'vue'
-import { allWords } from '../words'
 import Keyboard from './Keyboard.vue'
 import { GameCompleteProps, LettersGuessedProps, LettersGuessed, LetterState, OtherUser } from '../types'
 
@@ -16,15 +15,32 @@ const { answer, myPresence, letterStates } = defineProps<{
   letterStates: LettersGuessed
 }>()
 
-// Board state. Each tile is represented as { letter, state }
-const board = $ref(myPresence.board ? myPresence.board :
-  Array.from({ length: 6 }, () =>
+function createEmptyBoard () {
+  return Array.from({ length: 6 }, () =>
     Array.from({ length: 5 }, () => ({
       letter: '',
       state: LetterState.INITIAL
     }))
   )
-)
+}
+
+function isValidBoardShape (maybeBoard: unknown): boolean {
+  return Array.isArray(maybeBoard) &&
+    maybeBoard.length === 6 &&
+    maybeBoard.every((row) =>
+      Array.isArray(row) &&
+      row.length === 5 &&
+      row.every((tile) =>
+        tile &&
+        typeof tile === 'object' &&
+        'letter' in tile &&
+        'state' in tile
+      )
+    )
+}
+
+// Board state. Each tile is represented as { letter, state }
+const board = $ref(isValidBoardShape(myPresence.board) ? myPresence.board : createEmptyBoard())
 
 // Current active row.
 let currentRowIndex = $ref(myPresence.rowsComplete ? myPresence.rowsComplete : 0)
@@ -49,8 +65,8 @@ onUnmounted(() => {
 
 function onKey (key: string) {
   if (!allowInput) return
-  if (/^[a-zA-ZğüşöçıİĞÜŞÖÇ]$/.test(key)) {
-    fillTile(key.toLocaleLowerCase("tr-TR"))
+  if (/^\d$/.test(key)) {
+    fillTile(key)
   } else if (key === 'Backspace') {
     clearTile()
   } else if (key === 'Enter') {
@@ -78,38 +94,53 @@ function clearTile () {
 
 function completeRow () {
   if (currentRow.every((tile) => tile.letter)) {
-    const guess = currentRow.map((tile) => tile.letter).join('')
-    if (!allWords.includes(guess) && guess !== answer) {
+    const guess = currentRow.map((tile) => tile.letter).join('').trim()
+    const normalizedAnswer = String(answer).trim()
+    if (!/^\d{5}$/.test(guess)) {
       shake()
-      showMessage(`Kelime listesinde yok`)
+      showMessage('5 haneli bir sayi gir')
       return
     }
 
-    const answerLetters: (string | null)[] = answer.split('')
-    // first pass: mark correct ones
+    const resultStates: LetterState[] = Array.from({ length: 5 }, () => LetterState.ABSENT)
+    const remainingAnswerDigitCounts: Record<string, number> = {}
+
+    // Pass 1: exact matches (green), collect remaining answer digits.
+    for (let i = 0; i < 5; i++) {
+      const guessedDigit = guess[i]
+      const answerDigit = normalizedAnswer[i]
+      if (guessedDigit === answerDigit) {
+        resultStates[i] = LetterState.CORRECT
+      } else {
+        remainingAnswerDigitCounts[answerDigit] = (remainingAnswerDigitCounts[answerDigit] || 0) + 1
+      }
+    }
+
+    // Pass 2: misplaced matches (yellow) using remaining counts.
+    for (let i = 0; i < 5; i++) {
+      if (resultStates[i] === LetterState.CORRECT) continue
+      const guessedDigit = guess[i]
+      if ((remainingAnswerDigitCounts[guessedDigit] || 0) > 0) {
+        resultStates[i] = LetterState.PRESENT
+        remainingAnswerDigitCounts[guessedDigit] -= 1
+      }
+    }
+
+    // Apply row states and merge keyboard states without downgrading colors.
+    const statePriority: Record<LetterState, number> = {
+      [LetterState.INITIAL]: 0,
+      [LetterState.ABSENT]: 1,
+      [LetterState.PRESENT]: 2,
+      [LetterState.CORRECT]: 3
+    }
+
     currentRow.forEach((tile, i) => {
-      if (answerLetters[i] === tile.letter) {
-        tile.state = letterStates[tile.letter] = LetterState.CORRECT
-        answerLetters[i] = null
-      }
-    })
-    // second pass: mark the present
-    currentRow.forEach((tile) => {
-      if (!tile.state && answerLetters.includes(tile.letter)) {
-        tile.state = LetterState.PRESENT
-        answerLetters[answerLetters.indexOf(tile.letter)] = null
-        if (!letterStates[tile.letter]) {
-          letterStates[tile.letter] = LetterState.PRESENT
-        }
-      }
-    })
-    // 3rd pass: mark absent
-    currentRow.forEach((tile) => {
-      if (!tile.state) {
-        tile.state = LetterState.ABSENT
-        if (!letterStates[tile.letter]) {
-          letterStates[tile.letter] = LetterState.ABSENT
-        }
+      const state = resultStates[i]
+      tile.state = state
+
+      const previous = letterStates[tile.letter] || LetterState.INITIAL
+      if (statePriority[state] > statePriority[previous]) {
+        letterStates[tile.letter] = state
       }
     })
 
@@ -117,7 +148,7 @@ function completeRow () {
     emit('lettersGuessed', { letterStates: letterStates, letterBoard: board })
 
     allowInput = false
-    if (currentRow.every((tile) => tile.state === LetterState.CORRECT)) {
+    if (resultStates.every((state) => state === LetterState.CORRECT)) {
       // yay!
       emit('sendScores', { success: true });
       setTimeout(() => {
@@ -210,6 +241,7 @@ function genResultGrid () {
       </div>
       <div
         v-for="(row, index) in board"
+        :key="`row-${index}`"
         :class="[
           'row',
           shakeRowIndex === index && 'shake',
@@ -218,6 +250,7 @@ function genResultGrid () {
       >
         <div
           v-for="(tile, index) in row"
+          :key="`tile-${index}`"
           :class="['tile', tile.letter && 'filled', tile.state && 'revealed']"
         >
           <div class="front" :style="{ transitionDelay: `${index * 300}ms` }">
