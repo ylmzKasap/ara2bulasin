@@ -1,31 +1,37 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { LetterState } from '../types'
 
-defineProps<{
+const props = defineProps<{
   letterStates: Record<string, LetterState>
+  keyboardEmojis: string[]
 }>()
 
 defineEmits<{
   (e: 'key', key: string): void
 }>()
 
-const rows = [
-  ['1', '2', '3', '4', '5'],
-  ['6', '7', '8', '9', '0'],
-  ['Enter', 'Backspace']
-]
+const rows = computed(() => {
+  const em = props.keyboardEmojis
+  return [
+    em.slice(0, 5),
+    em.slice(5, 10),
+    ['Enter', 'Backspace'] as const
+  ]
+})
 </script>
 
 <template>
   <div id="keyboard">
     <div class="row" v-for="(row, rowIndex) in rows" :key="`row-${rowIndex}`">
       <button
-        v-for="key in row"
-        :key="key"
-        :class="['keyboard-button', key.length > 1 && 'big', letterStates[key]]"
+        v-for="(key, keyIndex) in row"
+        :key="`${rowIndex}-${keyIndex}-${key}`"
+        :class="['keyboard-button', (key === 'Enter' || key === 'Backspace') && 'big', letterStates[key]]"
         @click="$emit('key', key)"
       >
-        <span v-if="key !== 'Backspace'">{{ key.toLocaleUpperCase('tr-TR') }}</span>
+        <span v-if="key === 'Enter'">Enter</span>
+        <span v-else-if="key !== 'Backspace'" class="emoji-key">{{ key }}</span>
         <svg
           v-else
           xmlns="http://www.w3.org/2000/svg"
@@ -56,10 +62,6 @@ const rows = [
   touch-action: manipulation;
 }
 
-.spacer {
-  flex: 0.5;
-}
-
 .keyboard-button {
   font-family: inherit;
   font-weight: 600;
@@ -78,7 +80,10 @@ const rows = [
   transition: all 0.2s 1.5s;
 }
 
-
+.emoji-key {
+  font-size: 1.35rem;
+  line-height: 1;
+}
 
 button:last-of-type {
   margin: 0;

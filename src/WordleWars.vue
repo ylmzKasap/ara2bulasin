@@ -30,7 +30,7 @@ import calculatePlayerScore from './lib/calculatePlayerScore';
 // SETUP
 
 // Get answer from a single source of truth
-const { answer } = getWordOfTheDay()
+const { answer, keyboardEmojis } = getWordOfTheDay()
 // Current state of game, username, etc
 const params = new URL(location.href).searchParams;
 const room_id = params.get('room');
@@ -925,7 +925,7 @@ async function login(reset=false) {
 
       <div v-if="gameState === GameState.PLAYING || gameState === GameState.COMPLETE" id="playing">
         <MiniScores :sortedUsers="sortedUsers" :shrink="true" />
-        <Game :answer="answer" :myPresence="myPresence" :letterStates="letterStates" @lettersGuessed="onLettersGuessed" @gameComplete="onGameComplete" @sendScores="onSendScores">
+        <Game :answer="answer" :keyboard-emojis="keyboardEmojis" :myPresence="myPresence" :letterStates="letterStates" @lettersGuessed="onLettersGuessed" @gameComplete="onGameComplete" @sendScores="onSendScores">
           <template v-slot:board-left>
             <div class="mini-board-container">
               <MiniBoardPlaying v-for="other in othersFilterOdd(true)" :user="other" :showLetters="gameState === GameState.COMPLETE" />

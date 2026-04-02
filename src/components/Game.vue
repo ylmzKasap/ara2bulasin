@@ -9,11 +9,16 @@ const emit = defineEmits<{
   (e: 'sendScores', key: {success: boolean}): void
 }>()
 
-const { answer, myPresence, letterStates } = defineProps<{
+const { answer, keyboardEmojis, myPresence, letterStates } = defineProps<{
   answer: string,
+  keyboardEmojis: string[],
   myPresence: OtherUser,
   letterStates: LettersGuessed
 }>()
+
+function isAllowedEmoji (key: string) {
+  return keyboardEmojis.includes(key)
+}
 
 function createEmptyBoard () {
   return Array.from({ length: 6 }, () =>
@@ -65,7 +70,7 @@ onUnmounted(() => {
 
 function onKey (key: string) {
   if (!allowInput) return
-  if (/^\d$/.test(key)) {
+  if (isAllowedEmoji(key)) {
     fillTile(key)
   } else if (key === 'Backspace') {
     clearTile()
@@ -94,35 +99,41 @@ function clearTile () {
 
 function completeRow () {
   if (currentRow.every((tile) => tile.letter)) {
-    const guess = currentRow.map((tile) => tile.letter).join('').trim()
+    const guessUnits = currentRow.map((tile) => tile.letter)
     const normalizedAnswer = String(answer).trim()
-    if (!/^\d{5}$/.test(guess)) {
+    const answerUnits = [...normalizedAnswer]
+
+    if (
+      guessUnits.length !== 5 ||
+      answerUnits.length !== 5 ||
+      !guessUnits.every((g) => isAllowedEmoji(g))
+    ) {
       shake()
-      showMessage('5 haneli bir sayi gir')
+      showMessage('5 emoji sec')
       return
     }
 
     const resultStates: LetterState[] = Array.from({ length: 5 }, () => LetterState.ABSENT)
-    const remainingAnswerDigitCounts: Record<string, number> = {}
+    const remainingAnswerCounts: Record<string, number> = {}
 
-    // Pass 1: exact matches (green), collect remaining answer digits.
+    // Pass 1: exact matches (green), collect remaining answer emojis.
     for (let i = 0; i < 5; i++) {
-      const guessedDigit = guess[i]
-      const answerDigit = normalizedAnswer[i]
-      if (guessedDigit === answerDigit) {
+      const guessed = guessUnits[i]
+      const ans = answerUnits[i]
+      if (guessed === ans) {
         resultStates[i] = LetterState.CORRECT
       } else {
-        remainingAnswerDigitCounts[answerDigit] = (remainingAnswerDigitCounts[answerDigit] || 0) + 1
+        remainingAnswerCounts[ans] = (remainingAnswerCounts[ans] || 0) + 1
       }
     }
 
     // Pass 2: misplaced matches (yellow) using remaining counts.
     for (let i = 0; i < 5; i++) {
       if (resultStates[i] === LetterState.CORRECT) continue
-      const guessedDigit = guess[i]
-      if ((remainingAnswerDigitCounts[guessedDigit] || 0) > 0) {
+      const guessed = guessUnits[i]
+      if ((remainingAnswerCounts[guessed] || 0) > 0) {
         resultStates[i] = LetterState.PRESENT
-        remainingAnswerDigitCounts[guessedDigit] -= 1
+        remainingAnswerCounts[guessed] -= 1
       }
     }
 
@@ -172,13 +183,13 @@ function completeRow () {
       // game over :(
       emit('sendScores', { success: false });
       setTimeout(() => {
-        showMessage(answer.toLocaleUpperCase('tr'), -1)
+        showMessage(answer, -1)
         emit('gameComplete', { success: false })
       }, 1600)
     }
   } else {
     shake()
-    showMessage('Yeterli harf yok')
+    showMessage('5 emoji doldur')
   }
 }
 
@@ -254,7 +265,7 @@ function genResultGrid () {
           :class="['tile', tile.letter && 'filled', tile.state && 'revealed']"
         >
           <div class="front" :style="{ transitionDelay: `${index * 300}ms` }">
-            {{ tile.letter.replace(/i/g, 'İ') }}
+            {{ tile.letter }}
           </div>
           <div
             :class="['back', tile.state]"
@@ -263,7 +274,7 @@ function genResultGrid () {
               animationDelay: `${index * 100}ms`
             }"
           >
-            {{ tile.letter.replace(/i/g, 'İ') }}
+            {{ tile.letter }}
           </div>
         </div>
       </div>
@@ -273,7 +284,7 @@ function genResultGrid () {
     </div>
   </div>
   <div id="keyboard-wrapper">
-    <Keyboard @key="onKey" :letter-states="letterStates" />
+    <Keyboard @key="onKey" :letter-states="letterStates" :keyboard-emojis="keyboardEmojis" />
   </div>
 </template>
 
@@ -388,11 +399,11 @@ function genResultGrid () {
 
 .tile {
   width: 100%;
-  font-size: 2rem;
+  font-size: 1.75rem;
   line-height: 2rem;
   font-weight: bold;
   vertical-align: middle;
-  text-transform: uppercase;
+  text-transform: none;
   user-select: none;
   position: relative;
 }
