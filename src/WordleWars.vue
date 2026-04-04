@@ -29,8 +29,8 @@ import calculatePlayerScore from './lib/calculatePlayerScore';
 // ================================================================================
 // SETUP
 
-// Get answer from a single source of truth
-const { answer, keyboardEmojis } = getWordOfTheDay()
+// Get word of the day. Resets at UTC +00:00
+const { answer } = getWordOfTheDay()
 // Current state of game, username, etc
 const params = new URL(location.href).searchParams;
 const room_id = params.get('room');
@@ -253,7 +253,6 @@ watchEffect(() => {
 
 // Updates the current game stage for local player
 function updateGameStage (stage: GameState) {
-  localStorage.setItem('sound', 'on');
   if (myPresence?.value) {
     gameState = stage
 
@@ -297,12 +296,12 @@ function getReadyPlayers() {
 }
 
 function tabIsOpen() {
-  if (!others?.value || (Array.from(others?.value)).length === 0 || !myPresence) {
+  if (!others?.value || !others?.value.count || !myPresence) {
     return false;
   }
 
   const myId = myPresence.value.id;
-  return Array.from(others.value).some(p => p.presence && p.presence.id === myId);
+  return others.value?.toArray().some(p => p.presence && p.presence.id === myId);
 }
 
 
@@ -444,7 +443,6 @@ function onCopyLink () {
 
 // Function force entry
 function onForceEntry () {
-  localStorage.setItem('sound', 'on');
   if (forceEntryError) return;
 
   if (tabIsOpen()) {
@@ -925,7 +923,7 @@ async function login(reset=false) {
 
       <div v-if="gameState === GameState.PLAYING || gameState === GameState.COMPLETE" id="playing">
         <MiniScores :sortedUsers="sortedUsers" :shrink="true" />
-        <Game :answer="answer" :keyboard-emojis="keyboardEmojis" :myPresence="myPresence" :letterStates="letterStates" @lettersGuessed="onLettersGuessed" @gameComplete="onGameComplete" @sendScores="onSendScores">
+        <Game :answer="answer" :myPresence="myPresence" :letterStates="letterStates" @lettersGuessed="onLettersGuessed" @gameComplete="onGameComplete" @sendScores="onSendScores">
           <template v-slot:board-left>
             <div class="mini-board-container">
               <MiniBoardPlaying v-for="other in othersFilterOdd(true)" :user="other" :showLetters="gameState === GameState.COMPLETE" />
@@ -943,7 +941,7 @@ async function login(reset=false) {
         <div v-if="gameState === GameState.SCORES" id="scores">
           <div>
             <h2>
-              <span>Doğru cevap: <strong class="tracking-wider">{{ answer }}</strong></span>
+              <span>Doğru cevap: <strong class="tracking-wider">{{ answer.toLocaleUpperCase('TR') }}</strong></span>
             </h2>
             <div class="divider" />
             <div class="scores-grid">

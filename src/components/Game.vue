@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onUnmounted } from 'vue'
+import { allWords } from '../words'
 import Keyboard from './Keyboard.vue'
 import { GameCompleteProps, LettersGuessedProps, LettersGuessed, LetterState, OtherUser } from '../types'
 
@@ -9,43 +10,21 @@ const emit = defineEmits<{
   (e: 'sendScores', key: {success: boolean}): void
 }>()
 
-const { answer, keyboardEmojis, myPresence, letterStates } = defineProps<{
+const { answer, myPresence, letterStates } = defineProps<{
   answer: string,
-  keyboardEmojis: string[],
   myPresence: OtherUser,
   letterStates: LettersGuessed
 }>()
 
-function isAllowedEmoji (key: string) {
-  return keyboardEmojis.includes(key)
-}
-
-function createEmptyBoard () {
-  return Array.from({ length: 6 }, () =>
+// Board state. Each tile is represented as { letter, state }
+const board = $ref(myPresence.board ? myPresence.board :
+  Array.from({ length: 6 }, () =>
     Array.from({ length: 5 }, () => ({
       letter: '',
       state: LetterState.INITIAL
     }))
   )
-}
-
-function isValidBoardShape (maybeBoard: unknown): boolean {
-  return Array.isArray(maybeBoard) &&
-    maybeBoard.length === 6 &&
-    maybeBoard.every((row) =>
-      Array.isArray(row) &&
-      row.length === 5 &&
-      row.every((tile) =>
-        tile &&
-        typeof tile === 'object' &&
-        'letter' in tile &&
-        'state' in tile
-      )
-    )
-}
-
-// Board state. Each tile is represented as { letter, state }
-const board = $ref(isValidBoardShape(myPresence.board) ? myPresence.board : createEmptyBoard())
+)
 
 // Current active row.
 let currentRowIndex = $ref(myPresence.rowsComplete ? myPresence.rowsComplete : 0)
@@ -70,8 +49,8 @@ onUnmounted(() => {
 
 function onKey (key: string) {
   if (!allowInput) return
-  if (isAllowedEmoji(key)) {
-    fillTile(key)
+  if (/^[a-zA-ZğüşöçıİĞÜŞÖÇ]$/.test(key)) {
+    fillTile(key.toLocaleLowerCase("tr-TR"))
   } else if (key === 'Backspace') {
     clearTile()
   } else if (key === 'Enter') {
@@ -99,59 +78,38 @@ function clearTile () {
 
 function completeRow () {
   if (currentRow.every((tile) => tile.letter)) {
-    const guessUnits = currentRow.map((tile) => tile.letter)
-    const normalizedAnswer = String(answer).trim()
-    const answerUnits = [...normalizedAnswer]
-
-    if (
-      guessUnits.length !== 5 ||
-      answerUnits.length !== 5 ||
-      !guessUnits.every((g) => isAllowedEmoji(g))
-    ) {
+    const guess = currentRow.map((tile) => tile.letter).join('')
+    if (!allWords.includes(guess) && guess !== answer) {
       shake()
-      showMessage('5 emoji sec')
+      showMessage(`Kelime listesinde yok`)
       return
     }
 
-    const resultStates: LetterState[] = Array.from({ length: 5 }, () => LetterState.ABSENT)
-    const remainingAnswerCounts: Record<string, number> = {}
-
-    // Pass 1: exact matches (green), collect remaining answer emojis.
-    for (let i = 0; i < 5; i++) {
-      const guessed = guessUnits[i]
-      const ans = answerUnits[i]
-      if (guessed === ans) {
-        resultStates[i] = LetterState.CORRECT
-      } else {
-        remainingAnswerCounts[ans] = (remainingAnswerCounts[ans] || 0) + 1
-      }
-    }
-
-    // Pass 2: misplaced matches (yellow) using remaining counts.
-    for (let i = 0; i < 5; i++) {
-      if (resultStates[i] === LetterState.CORRECT) continue
-      const guessed = guessUnits[i]
-      if ((remainingAnswerCounts[guessed] || 0) > 0) {
-        resultStates[i] = LetterState.PRESENT
-        remainingAnswerCounts[guessed] -= 1
-      }
-    }
-
-    // Apply row states and merge keyboard states without downgrading colors.
-    const statePriority: Record<LetterState, number> = {
-      [LetterState.INITIAL]: 0,
-      [LetterState.ABSENT]: 1,
-      [LetterState.PRESENT]: 2,
-      [LetterState.CORRECT]: 3
-    }
-
+    const answerLetters: (string | null)[] = answer.split('')
+    // first pass: mark correct ones
     currentRow.forEach((tile, i) => {
-      const state = resultStates[i]
-      tile.state = state
-
-      const previous = letterStates[tile.letter] || LetterState.INITIAL
-      if (statePriority[state] > statePriority[previous]) {
-        letterStates[tile.letter] = state
+      if (answerLetters[i] === tile.letter) {
+        tile.state = letterStates[tile.letter] = LetterState.CORRECT
+        answerLetters[i] = null
+      }
+    })
+    // second pass: mark the present
+    currentRow.forEach((tile) => {
+      if (!tile.state && answerLetters.includes(tile.letter)) {
+        tile.state = LetterState.PRESENT
+        answerLetters[answerLetters.indexOf(tile.letter)] = null
+        if (!letterStates[tile.letter]) {
+          letterStates[tile.letter] = LetterState.PRESENT
+        }
+      }
+    })
+    // 3rd pass: mark absent
+    currentRow.forEach((tile) => {
+      if (!tile.state) {
+        tile.state = LetterState.ABSENT
+        if (!letterStates[tile.letter]) {
+          letterStates[tile.letter] = LetterState.ABSENT
+        }
       }
     })
 
@@ -159,7 +117,7 @@ function completeRow () {
     emit('lettersGuessed', { letterStates: letterStates, letterBoard: board })
 
     allowInput = false
-    if (resultStates.every((state) => state === LetterState.CORRECT)) {
+    if (currentRow.every((tile) => tile.state === LetterState.CORRECT)) {
       // yay!
       emit('sendScores', { success: true });
       setTimeout(() => {
@@ -183,13 +141,13 @@ function completeRow () {
       // game over :(
       emit('sendScores', { success: false });
       setTimeout(() => {
-        showMessage(answer, -1)
+        showMessage(answer.toLocaleUpperCase('tr'), -1)
         emit('gameComplete', { success: false })
       }, 1600)
     }
   } else {
     shake()
-    showMessage('5 emoji doldur')
+    showMessage('Yeterli harf yok')
   }
 }
 
@@ -252,7 +210,6 @@ function genResultGrid () {
       </div>
       <div
         v-for="(row, index) in board"
-        :key="`row-${index}`"
         :class="[
           'row',
           shakeRowIndex === index && 'shake',
@@ -261,11 +218,10 @@ function genResultGrid () {
       >
         <div
           v-for="(tile, index) in row"
-          :key="`tile-${index}`"
           :class="['tile', tile.letter && 'filled', tile.state && 'revealed']"
         >
           <div class="front" :style="{ transitionDelay: `${index * 300}ms` }">
-            {{ tile.letter }}
+            {{ tile.letter.replace(/i/g, 'İ') }}
           </div>
           <div
             :class="['back', tile.state]"
@@ -274,7 +230,7 @@ function genResultGrid () {
               animationDelay: `${index * 100}ms`
             }"
           >
-            {{ tile.letter }}
+            {{ tile.letter.replace(/i/g, 'İ') }}
           </div>
         </div>
       </div>
@@ -284,7 +240,7 @@ function genResultGrid () {
     </div>
   </div>
   <div id="keyboard-wrapper">
-    <Keyboard @key="onKey" :letter-states="letterStates" :keyboard-emojis="keyboardEmojis" />
+    <Keyboard @key="onKey" :letter-states="letterStates" />
   </div>
 </template>
 
@@ -399,11 +355,11 @@ function genResultGrid () {
 
 .tile {
   width: 100%;
-  font-size: 1.75rem;
+  font-size: 2rem;
   line-height: 2rem;
   font-weight: bold;
   vertical-align: middle;
-  text-transform: none;
+  text-transform: uppercase;
   user-select: none;
   position: relative;
 }
